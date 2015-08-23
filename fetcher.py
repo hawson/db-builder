@@ -45,7 +45,7 @@ def fetchdump(appids):
                 init_price = data[game]["data"]["price_overview"]["initial"]
                 final_price = data[game]["data"]["price_overview"]["final"]
                 game_obj = Game(id=game, init_price=init_price, final_price=final_price)
-                session.add(game_obj)
+                session.merge(game_obj)
         else:
             print("ID %s is false" % game)
     try:
