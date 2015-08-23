@@ -31,7 +31,7 @@ def build_list():
     game_list = json.loads(response.text)
     return game_list
 
-def fetchdump(appids, mapping):
+def fetchdump(appids, master_list):
     if len(appids) > LIMIT:
         print("Error: Do not submit more than %d items per query!" % LIMIT)
         return
@@ -49,7 +49,7 @@ def fetchdump(appids, mapping):
             if data[game]["data"]:
                 init_price = data[game]["data"]["price_overview"]["initial"]
                 final_price = data[game]["data"]["price_overview"]["final"]
-                name = mapping[int(game)]
+                name = master_list["applist"]["apps"][int(game)]["name"]
                 game_obj = Game(id=game, name=name, init_price=init_price, final_price=final_price)
                 session.merge(game_obj)
         else:
@@ -62,15 +62,11 @@ def fetchdump(appids, mapping):
 def main():
     master_list = build_list()
     appids = []
-    mapping = {}
+    #TODO: Split into chunks of LIMIT
     for app in master_list["applist"]["apps"][:LIMIT]:
         appids.append(str(app["appid"]))
-        if app["name"]:
-            mapping[app["appid"]] = app["name"]
-        else:
-            mapping[app["appid"]] = "unknown"
     Base.metadata.create_all(engine)
-    fetchdump(appids, mapping)
+    fetchdump(appids, master_list)
 
 if __name__ == "__main__":
     main()
