@@ -55,7 +55,7 @@ def fetchdump(appids):
 
 def main():
     master_list = build_list()
-    #TEST: first 20 in list, earliest ID's. There has got to be a better way to do this!
+    #TEST: first 20 in list
     appids = []
     for app in master_list["applist"]["apps"][:20]:
         appids.append(str(app["appid"]))
