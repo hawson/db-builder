@@ -17,11 +17,12 @@ LIMIT = 250
 class Game(Base):
     __tablename__ = 'games'
     id = Column(Integer, primary_key=True)
+    name = Column(String)
     init_price = Column(Integer)
     final_price = Column(Integer)
 
     def __repr__(self):
-        return "<Game(id='%s', initial_price='%s', final_price='%s')>" % (self.id, self.init_price, self.final_price)
+        return "<Game(id='%s', name='%s', initial_price='%s', final_price='%s')>" % (self.id, self.name, self.init_price, self.final_price)
 
 def build_list():
     game_list = dict()
@@ -30,7 +31,7 @@ def build_list():
     game_list = json.loads(response.text)
     return game_list
 
-def fetchdump(appids):
+def fetchdump(appids, mapping):
     if len(appids) > LIMIT:
         print("Error: Do not submit more than %d items per query!" % LIMIT)
         return
@@ -48,7 +49,8 @@ def fetchdump(appids):
             if data[game]["data"]:
                 init_price = data[game]["data"]["price_overview"]["initial"]
                 final_price = data[game]["data"]["price_overview"]["final"]
-                game_obj = Game(id=game, init_price=init_price, final_price=final_price)
+                name = mapping[int(game)]
+                game_obj = Game(id=game, name=name, init_price=init_price, final_price=final_price)
                 session.merge(game_obj)
         else:
             print("ID %s is false" % game)
@@ -60,10 +62,15 @@ def fetchdump(appids):
 def main():
     master_list = build_list()
     appids = []
+    mapping = {}
     for app in master_list["applist"]["apps"][:LIMIT]:
         appids.append(str(app["appid"]))
+        if app["name"]:
+            mapping[app["appid"]] = app["name"]
+        else:
+            mapping[app["appid"]] = "unknown"
     Base.metadata.create_all(engine)
-    fetchdump(appids)
+    fetchdump(appids, mapping)
 
 if __name__ == "__main__":
     main()
