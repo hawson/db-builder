@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 engine = create_engine('sqlite:///games.db')
 Base = declarative_base()
 API_URL = "http://store.steampowered.com/api/appdetails/"
+LIMIT = 250
 
 class Game(Base):
     __tablename__ = 'games'
@@ -30,6 +31,9 @@ def build_list():
     return game_list
 
 def fetchdump(appids):
+    if len(appids) > LIMIT:
+        print("Error: Do not submit more than %d items per query!" % LIMIT)
+        return
     #TODO: Make sure we were fed a list of strings, not list of ints
     Session = sessionmaker(bind=engine)
     session = Session()
@@ -55,9 +59,8 @@ def fetchdump(appids):
 
 def main():
     master_list = build_list()
-    #TEST: first 20 in list
     appids = []
-    for app in master_list["applist"]["apps"][:20]:
+    for app in master_list["applist"]["apps"][:LIMIT]:
         appids.append(str(app["appid"]))
     Base.metadata.create_all(engine)
     fetchdump(appids)
