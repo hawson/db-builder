@@ -1,0 +1,8 @@
+TODO:
+1. Decide on a framework (django, flask, bottle)
+2. Pick an authentication method (oauth, custom token)
+
+Links
+http://blog.miguelgrinberg.com/post/designing-a-restful-api-with-python-and-flask
+http://www.django-rest-framework.org/tutorial/quickstart
+http://bottlepy.org/docs/dev/index.html
