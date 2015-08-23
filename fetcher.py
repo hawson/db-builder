@@ -56,11 +56,9 @@ def fetchdump(appids):
 def main():
     master_list = build_list()
     #TEST: first 20 in list, earliest ID's. There has got to be a better way to do this!
-    apps = ""
+    appids = []
     for app in master_list["applist"]["apps"][:20]:
-        junk = " " + str(app["appid"])
-        apps += junk
-    appids = apps.split(' ')
+        appids.append(str(app["appid"]))
     Base.metadata.create_all(engine)
     fetchdump(appids)
 
