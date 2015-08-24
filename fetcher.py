@@ -9,11 +9,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 
-#TODO: Write functions to compare what is in the DB to what the API returns.
-#TODO: Write functions to update or insert based on presence in the DB
-#TODO: Define column lengths to ensure compatability with mysql.
-     
-
 #Globals
 engine = create_engine('sqlite:///games.db')
 Base = declarative_base()
@@ -78,7 +73,7 @@ def chunker(l, n):
 
 def main():
     master_list = build_list()
-    #generate appid list but keep the master_list in tact to know the mapping of appid to game name.
+    #generate appid list but keep the master_list intact to know the mapping of appid to game name.
     appids = []
     for game in master_list:
         appids.append(str(game["appid"]))
