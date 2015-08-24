@@ -53,7 +53,7 @@ def fetchdump(appids, master_list):
                 game_obj = Game(id=game, name=name, init_price=init_price, final_price=final_price)
                 session.merge(game_obj)
         else:
-            print("ID %s is false" % game)
+            print("Non success for %s : %s" % (game, master_list["applist"]["apps"][int(game)]["name"]))
     try:
         session.commit()
     except IntegrityError as err:
