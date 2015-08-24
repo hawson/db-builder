@@ -59,6 +59,20 @@ def fetchdump(appids, master_list):
     except IntegrityError as err:
         print("Error updating DB! %s" % err)
 
+def testmain():
+    #Test batching items into groups of LIMIT
+    master_list = build_list()
+    appids = []
+    counter = 0
+    for app in master_list["applist"]["apps"]:
+        if counter <= LIMIT:
+            appids.append(str(app["appid"]))
+            counter += 1
+        else:
+            fetchdump(appids, master_list)
+            counter = 0
+            appids = []
+
 def main():
     master_list = build_list()
     appids = []
