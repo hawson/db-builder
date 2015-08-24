@@ -68,28 +68,13 @@ def fetchdump(appids, master_list):
                 session.commit()
             except IntegrityError as err:
                 print("Error updating DB! {}".format(err))
+        print("Sleeping 30 seconds until the next batch")
         time.sleep(30)
 
 def chunker(l, n):
     """Yield successive n-sized chunks from list l."""
     for i in range(0, len(l), n):
         yield l[i:i+n]
-
-
-# I think this is taken care of using the chunker function and this can be deleted.
-def testmain():
-    #Test batching items into groups of LIMIT
-    master_list = build_list()
-    appids = []
-    counter = 0
-    for app in master_list["applist"]["apps"]:
-        if counter <= LIMIT:
-            appids.append(str(app["appid"]))
-            counter += 1
-        else:
-            fetchdump(appids, master_list)
-            counter = 0
-            appids = []
 
 def main():
     master_list = build_list()
