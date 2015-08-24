@@ -25,6 +25,12 @@ class Game(Base):
     def __repr__(self):
         return "<Game(id='%s', name='%s', initial_price='%s', final_price='%s')>" % (self.id, self.name, self.init_price, self.final_price)
 
+def dump_db():
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    for g in session.query(Game).all():
+        print("{} - {}".format(g.name, g.id))
+
 def build_list():
     URL = "http://api.steampowered.com/ISteamApps/GetAppList/v2"
     response = requests.get(URL)
