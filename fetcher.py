@@ -37,7 +37,7 @@ class Game(Base):
     def __repr__(self):
         return "<Game(id='{}', name='{}', last_update='{}', initial_price='{}', final_price='{}')>".format(self.id, self.name, self.last_update, self.init_price, self.final_price)
 
-def dump_db(session):
+def dump_game_db(session):
     dump = {}
     for g in session.query(Game).all():
         dump[g.id] = g.name
@@ -67,6 +67,12 @@ def query_db(session, game):
         print("Couldn't find ID {} : {}".format(game, e))
         return False
 
+def build_blacklist(session):
+    blacklist = []
+    for black_id in session.query(Blacklist).all():
+        blacklist.append(black_id)
+    return blacklist
+
 def update_db(session, game, field, value):
     try:
         session.query(Game).filter_by(id=game).update({field: value})
@@ -74,6 +80,7 @@ def update_db(session, game, field, value):
         print("Unknown error occured updating the DB!")
 
 def fetchdump(session, appids, master_list):
+    blacklist = build_blacklist(session)
     for applist in appids:
         params = {
             "appids": ",".join(applist),
@@ -86,6 +93,9 @@ def fetchdump(session, appids, master_list):
             print("Error requesting data for the following ids: {} \n continuing.".format(", ".join(applist)))
             continue
         for game in data:
+            if game in blacklist:
+                print("Skipping {} due to blacklist".format(game))
+                continue
             if data[game]["success"] is True and data[game]["data"]:
                 init_price = data[game]["data"]["price_overview"]["initial"]
                 final_price = data[game]["data"]["price_overview"]["final"]
@@ -128,7 +138,7 @@ def main():
     #Instantiate db handles
     Session = sessionmaker(bind=engine)
     session = Session()
-    json_db = dump_db(session)
+    #json_game_db = dump_game_db(session)
     fetchdump(session, appids, master_list)
 
 if __name__ == "__main__":
