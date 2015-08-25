@@ -32,7 +32,7 @@ class Game(Base):
     highest_price = Column(Integer, default=0)
 
     def __repr__(self):
-        return "<Game(id='%s', name='%s', last_update='%s', initial_price='%s', final_price='%s')>" % (self.id, self.name, self.last_update, self.init_price, self.final_price)
+        return "<Game(id='{}', name='{}', last_update='{}', initial_price='{}', final_price='{}')>".format(self.id, self.name, self.last_update, self.init_price, self.final_price)
 
 def dump_db(session):
     dump = {}
