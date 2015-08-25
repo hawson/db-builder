@@ -3,8 +3,9 @@
 import time
 import requests
 import json
+import datetime
 from sqlalchemy import create_engine, ForeignKey
-from sqlalchemy import Column, Date, Integer, String
+from sqlalchemy import Column, Date, DateTime, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
@@ -24,11 +25,14 @@ class Game(Base):
     __tablename__ = 'games'
     id = Column(Integer, primary_key=True)
     name = Column(String(100))
-    init_price = Column(Integer)
-    final_price = Column(Integer)
+    last_update = Column(DateTime, onupdate=datetime.datetime.utcnow)
+    init_price = Column(Integer, default=0)
+    final_price = Column(Integer, default=0)
+    lowest_price = Column(Integer, default=0)
+    highest_price = Column(Integer, default=0)
 
     def __repr__(self):
-        return "<Game(id='%s', name='%s', initial_price='%s', final_price='%s')>" % (self.id, self.name, self.init_price, self.final_price)
+        return "<Game(id='%s', name='%s', last_update='%s', initial_price='%s', final_price='%s')>" % (self.id, self.name, self.last_update, self.init_price, self.final_price)
 
 def dump_db(session):
     dump = {}
