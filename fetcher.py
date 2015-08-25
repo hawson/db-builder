@@ -8,6 +8,7 @@ from sqlalchemy import Column, Date, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 
 #Globals
 engine = create_engine('sqlite:///games.db')
@@ -22,7 +23,7 @@ class Blacklist(Base):
 class Game(Base):
     __tablename__ = 'games'
     id = Column(Integer, primary_key=True)
-    name = Column(String)
+    name = Column(String(100))
     init_price = Column(Integer)
     final_price = Column(Integer)
 
@@ -45,6 +46,22 @@ def name_matcher(appid, master_list):
     for game in master_list:
         if int(appid) == game['appid']:
             return game['name']
+
+def query_db(session, game):
+    try:
+        result = session.query(Game).filter_by(id=game).one()
+        return result
+    except MultipleResultsFound as e:
+        print("{}".format(e))
+    except NoResultFound as e:
+        print("{}".format(e))
+    return 0
+
+def insert_db():
+    return False
+
+def update_db():
+    return False
 
 def fetchdump(appids, master_list):
     for applist in appids:
