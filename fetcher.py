@@ -59,8 +59,7 @@ def name_matcher(appid, master_list):
 def query_db(session, game):
     try:
         result = session.query(Game).filter_by(id=game).one()
-        print("{}".format(result))
-        return True
+        return result
     except MultipleResultsFound as e:
         print("{}".format(e))
         return False
@@ -68,11 +67,11 @@ def query_db(session, game):
         print("Couldn't find ID {} : {}".format(game, e))
         return False
 
-def insert_db():
-    return False
-
-def update_db():
-    return False
+def update_db(session, game, field, value):
+    try:
+        session.query(Game).filter_by(id=game).update({field: value})
+    except:
+        print("Unknown error occured updating the DB!")
 
 def fetchdump(session, appids, master_list):
     for applist in appids:
@@ -92,7 +91,12 @@ def fetchdump(session, appids, master_list):
                 final_price = data[game]["data"]["price_overview"]["final"]
                 name = name_matcher(game, master_list)
                 game_obj = Game(id=game, name=name, init_price=init_price, final_price=final_price)
-                session.merge(game_obj)
+                price_check = query_db(session, game)
+                if price_check:
+                    if price_check.final_price != final_price:
+                        update_db(session, game, "final_price", final_price)
+                else:
+                    session.add(game_obj)
             else:
                 print("ID {} is false for game: {}".format(game, name_matcher(game,master_list)))
                 blacklist_obj = Blacklist(id=game)
