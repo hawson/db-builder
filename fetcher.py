@@ -30,11 +30,13 @@ class Game(Base):
     def __repr__(self):
         return "<Game(id='%s', name='%s', initial_price='%s', final_price='%s')>" % (self.id, self.name, self.init_price, self.final_price)
 
-def dump_db():
-    Session = sessionmaker(bind=engine)
-    session = Session()
+def dump_db(session):
+    dump = {}
     for g in session.query(Game).all():
-        print("{} - {}".format(g.name, g.id))
+        dump[g.id] = g.name
+        #print("{} - {}".format(g.name, g.id))
+    output = json.dumps(dump)
+    return output
 
 def build_list():
     URL = "http://api.steampowered.com/ISteamApps/GetAppList/v2"
@@ -65,10 +67,8 @@ def insert_db():
 def update_db():
     return False
 
-def fetchdump(appids, master_list):
+def fetchdump(session, appids, master_list):
     for applist in appids:
-        Session = sessionmaker(bind=engine)
-        session = Session()
         params = {
             "appids": ",".join(applist),
             "filters": "price_overview"
@@ -106,14 +106,19 @@ def chunker(l, n):
         yield l[i:i+n]
 
 def main():
-    master_list = build_list()
     #generate appid list but keep the master_list intact to know the mapping of appid to game name.
+    master_list = build_list()
     appids = []
     for game in master_list:
         appids.append(str(game["appid"]))
     appids = list(chunker(appids, LIMIT))
+    #Make sure db tables exist
     Base.metadata.create_all(engine)
-    fetchdump(appids, master_list)
+    #Instantiate db handles
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    json_db = dump_db(session)
+    fetchdump(session, appids, master_list)
 
 if __name__ == "__main__":
     main()
