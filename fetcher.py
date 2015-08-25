@@ -50,12 +50,14 @@ def name_matcher(appid, master_list):
 def query_db(session, game):
     try:
         result = session.query(Game).filter_by(id=game).one()
-        return result
+        print("{}".format(result))
+        return True
     except MultipleResultsFound as e:
         print("{}".format(e))
+        return False
     except NoResultFound as e:
-        print("{}".format(e))
-    return 0
+        print("Couldn't find ID {} : {}".format(game, e))
+        return False
 
 def insert_db():
     return False
