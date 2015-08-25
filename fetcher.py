@@ -15,6 +15,10 @@ Base = declarative_base()
 API_URL = "http://store.steampowered.com/api/appdetails/"
 LIMIT = 250
 
+class Blacklist(Base):
+    __tablename__ = 'blacklist'
+    id = Column(Integer, primary_key=True)
+
 class Game(Base):
     __tablename__ = 'games'
     id = Column(Integer, primary_key=True)
@@ -65,12 +69,17 @@ def fetchdump(appids, master_list):
                 session.merge(game_obj)
             else:
                 print("ID {} is false for game: {}".format(game, name_matcher(game,master_list)))
+                blacklist_obj = Blacklist(id=game)
+                session.merge(blacklist_obj)
             try:
                 session.commit()
             except IntegrityError as err:
                 print("Error updating DB! {}".format(err))
         print("Sleeping 30 seconds until the next batch")
-        time.sleep(30)
+        try:
+            time.sleep(30)
+        except KeyboardInterrupt:
+            exit(1)
 
 def chunker(l, n):
     """Yield successive n-sized chunks from list l."""
