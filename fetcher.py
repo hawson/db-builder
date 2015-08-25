@@ -21,6 +21,9 @@ class Blacklist(Base):
     __tablename__ = 'blacklist'
     id = Column(Integer, primary_key=True)
 
+    def __repr__(self):
+        return "<Blacklist(id='{}')>".format(self.id)
+
 class Game(Base):
     __tablename__ = 'games'
     id = Column(Integer, primary_key=True)
