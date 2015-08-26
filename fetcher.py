@@ -1,5 +1,8 @@
 #!/usr/bin/python3
-
+'''
+Description: Fetches a list of all the Steam ID's and checks the 
+current pricing of each game
+'''
 import time
 import requests
 import json
@@ -17,6 +20,7 @@ Base = declarative_base()
 API_URL = "http://store.steampowered.com/api/appdetails/"
 LIMIT = 250
 
+#DB Table descriptions
 class Blacklist(Base):
     __tablename__ = 'blacklist'
     id = Column(Integer, primary_key=True)
@@ -37,6 +41,7 @@ class Game(Base):
     def __repr__(self):
         return "<Game(id='{}', name='{}', last_update='{}', initial_price='{}', final_price='{}')>".format(self.id, self.name, self.last_update, self.init_price, self.final_price)
 
+#Dumps the game database
 def dump_game_db(session):
     dump = {}
     for g in session.query(Game).all():
@@ -45,17 +50,20 @@ def dump_game_db(session):
     output = json.dumps(dump)
     return output
 
+#Builds list of all the possible Steam ID's
 def build_list():
     URL = "http://api.steampowered.com/ISteamApps/GetAppList/v2"
     response = requests.get(URL)
     game_list = response.json()["applist"]["apps"]
     return game_list
 
+#Maps the Steam ID to an actual name
 def name_matcher(appid, master_list):
     for game in master_list:
         if int(appid) == game['appid']:
             return game['name']
 
+#Queries the game DB
 def query_db(session, game):
     try:
         result = session.query(Game).filter_by(id=game).one()
@@ -67,18 +75,21 @@ def query_db(session, game):
         print("Couldn't find ID {} : {}".format(game, e))
         return False
 
+#Builds a list of all the blacklist ID's (Those that have no price)
 def build_blacklist(session):
     blacklist = []
     for black in session.query(Blacklist).all():
         blacklist.append(black.id)
     return blacklist
 
+#Updates the game DB
 def update_db(session, game, field, value):
     try:
         session.query(Game).filter_by(id=game).update({field: value})
     except:
         print("Unknown error occured updating the DB!")
 
+#Main routine for fetching the current price per game
 def fetchdump(session, appids, master_list):
     blacklist = build_blacklist(session)
     for applist in appids:
@@ -121,21 +132,20 @@ def fetchdump(session, appids, master_list):
         except KeyboardInterrupt:
             exit(1)
 
+#Routine for splitting up the queries into chunks of a certain limit
 def chunker(l, n):
     """Yield successive n-sized chunks from list l."""
     for i in range(0, len(l), n):
         yield l[i:i+n]
 
+#Main method (starting point)
 def main():
-    #generate appid list but keep the master_list intact to know the mapping of appid to game name.
     master_list = build_list()
     appids = []
     for game in master_list:
         appids.append(str(game["appid"]))
     appids = list(chunker(appids, LIMIT))
-    #Make sure db tables exist
     Base.metadata.create_all(engine)
-    #Instantiate db handles
     Session = sessionmaker(bind=engine)
     session = Session()
     #json_game_db = dump_game_db(session)
