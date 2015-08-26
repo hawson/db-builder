@@ -69,8 +69,8 @@ def query_db(session, game):
 
 def build_blacklist(session):
     blacklist = []
-    for black_id in session.query(Blacklist).all():
-        blacklist.append(black_id)
+    for black in session.query(Blacklist).all():
+        blacklist.append(black.id)
     return blacklist
 
 def update_db(session, game, field, value):
@@ -93,7 +93,7 @@ def fetchdump(session, appids, master_list):
             print("Error requesting data for the following ids: {} \n continuing.".format(", ".join(applist)))
             continue
         for game in data:
-            if game in blacklist:
+            if int(game) in blacklist:
                 print("Skipping {} due to blacklist".format(game))
                 continue
             if data[game]["success"] is True and data[game]["data"]:
