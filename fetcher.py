@@ -116,6 +116,10 @@ def fetchdump(session, appids, master_list):
                 if price_check:
                     if price_check.final_price != final_price:
                         update_db(session, game, "final_price", final_price)
+                    if price_check.lowest_price > final_price:
+                        update_db(session, game, "lowest_price", final_price)
+                    if price_check.highest_price < final_price:
+                        update_db(session, game, "highest_price", final_price)
                 else:
                     session.add(game_obj)
             else:
