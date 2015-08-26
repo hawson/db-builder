@@ -121,7 +121,7 @@ def fetchdump(session, appids, master_list):
             else:
                 print("ID {} is false for game: {}".format(game, name_matcher(game,master_list)))
                 blacklist_obj = Blacklist(id=game)
-                session.merge(blacklist_obj)
+                session.add(blacklist_obj)
             try:
                 session.commit()
             except IntegrityError as err:
