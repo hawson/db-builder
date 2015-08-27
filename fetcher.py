@@ -89,6 +89,13 @@ def update_db(session, game, field, value):
     except:
         print("Unknown error occured updating the DB!")
 
+# Split a problematic list in half to try and identify the bad ID for blacklisting.
+def list_split(session, applist, master_list):
+    """Receives a list, splits in half, resends the list of two lists into fetchdump()"""
+    newapplist = [applist[::2], applist[1::2]]
+    fetchdump(session, newapplist, master_list)
+    return
+
 #Main routine for fetching the current price per game
 def fetchdump(session, appids, master_list):
     blacklist = build_blacklist(session)
@@ -101,10 +108,16 @@ def fetchdump(session, appids, master_list):
         try:
             data = response.json()
         except:
-            print("Error requesting data for the following ids: {} \n continuing.".format(", ".join(applist)))
+            print("Error requesting data for the following ids: {} \n continuing after splitting them up and retrying.".format(", ".join(applist)))
+            if len(applist) <= 1:
+                print("ID {} is false for game: {}".format(game, name_matcher(game,master_list)))
+                blacklist_obj = Blacklist(id=game)
+                session.add(blacklist_obj)
+            else:
+                list_split(session, applist, master_list)
             continue
         for game in data:
-            if int(game) in blacklist:
+            if int(game) in blacklist: #this check should be done prior to the web request.
                 print("Skipping {} due to blacklist".format(game))
                 continue
             if data[game]["success"] is True and data[game]["data"]:
@@ -144,14 +157,18 @@ def chunker(l, n):
 
 #Main method (starting point)
 def main():
-    master_list = build_list()
-    appids = []
-    for game in master_list:
-        appids.append(str(game["appid"]))
-    appids = list(chunker(appids, LIMIT))
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     session = Session()
+    blacklist = build_blacklist(session)
+    master_list = build_list()
+    appids = []
+    for game in master_list:
+        if game["appid"] not in blacklist:
+            appids.append(str(game["appid"]))
+        else:
+            print("Skipping ID {}:{} because it is blacklisted".format(game["appid"], game["name"]))
+    appids = list(chunker(appids, LIMIT))
     #json_game_db = dump_game_db(session)
     fetchdump(session, appids, master_list)
 
