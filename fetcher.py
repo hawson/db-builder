@@ -98,7 +98,6 @@ def list_split(session, applist, master_list):
 
 #Main routine for fetching the current price per game
 def fetchdump(session, appids, master_list):
-    blacklist = build_blacklist(session)
     for applist in appids:
         params = {
             "appids": ",".join(applist),
@@ -124,7 +123,8 @@ def fetchdump(session, appids, master_list):
                 init_price = data[game]["data"]["price_overview"]["initial"]
                 final_price = data[game]["data"]["price_overview"]["final"]
                 name = name_matcher(game, master_list)
-                game_obj = Game(id=game, name=name, init_price=init_price, final_price=final_price)
+                curtime = datetime.datetime.utcnow()
+                game_obj = Game(id=game, name=name, init_price=init_price, final_price=final_price, lowest_price=final_price, highest_price=init_price, last_update=curtime)
                 price_check = query_db(session, game)
                 if price_check:
                     if price_check.final_price != final_price:
@@ -145,7 +145,7 @@ def fetchdump(session, appids, master_list):
                 print("Error updating DB! {}".format(err))
         print("Sleeping 30 seconds until the next batch")
         try:
-            time.sleep(30)
+            time.sleep(10)
         except KeyboardInterrupt:
             exit(1)
 
