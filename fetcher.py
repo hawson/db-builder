@@ -18,7 +18,7 @@ from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 engine = create_engine('sqlite:///games.db')
 Base = declarative_base()
 API_URL = "http://store.steampowered.com/api/appdetails/"
-LIMIT = 250
+LIMIT = 200
 
 #DB Table descriptions
 class Blacklist(Base):
@@ -116,9 +116,9 @@ def fetchdump(session, appids, master_list):
                 list_split(session, applist, master_list)
             continue
         for game in data:
-            if int(game) in blacklist: #this check should be done prior to the web request.
-                print("Skipping {} due to blacklist".format(game))
-                continue
+            #if int(game) in blacklist: #this check should be done prior to the web request.
+            #    print("Skipping {} due to blacklist".format(game))
+            #    continue
             if data[game]["success"] is True and data[game]["data"]:
                 init_price = data[game]["data"]["price_overview"]["initial"]
                 final_price = data[game]["data"]["price_overview"]["final"]
