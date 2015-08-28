@@ -69,11 +69,11 @@ def query_db(session, game):
     try:
         result = session.query(Game).filter_by(id=game).one()
         return result
-    except MultipleResultsFound as e:
-        print("{}".format(e))
+    except MultipleResultsFound:
+        print("Error, multiple entries found for ID: {}".format(game))
         return False
-    except NoResultFound as e:
-        print("Couldn't find ID {} : {}".format(game, e))
+    except NoResultFound:
+        print("No results found for ID: {}".format(game))
         return False
 
 #Builds a list of all the blacklist ID's (Those that have no price)
