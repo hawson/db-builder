@@ -73,7 +73,7 @@ def query_db(session, game):
         print("Error, multiple entries found for ID: {}".format(game))
         return False
     except NoResultFound:
-        print("No results found for ID: {}".format(game))
+        print("No results found for ID {}. Updating DB".format(game))
         return False
 
 #Builds a list of all the blacklist ID's (Those that have no price)
@@ -108,9 +108,9 @@ def fetchdump(session, appids, master_list):
         try:
             data = response.json()
         except:
-            print("Error requesting data for the following ids: {} \n continuing after splitting them up and retrying.".format(", ".join(applist)))
+            print("Error requesting data for the following ids: {} \n continuing after splitting them up and retrying".format(", ".join(applist)))
             if len(applist) <= 1:
-                print("ID {} is false for game: {}".format(game, name_matcher(game,master_list)))
+                print("ID {} : {} has invalid json, updating blacklist".format(game, name_matcher(game,master_list)))
                 blacklist_obj = Blacklist(id=game)
                 session.add(blacklist_obj)
             else:
@@ -134,7 +134,7 @@ def fetchdump(session, appids, master_list):
                 else:
                     session.add(game_obj)
             else:
-                print("ID {} is false for game: {}".format(game, name_matcher(game,master_list)))
+                print("ID {} : {} has invalid json, updating blacklist".format(game, name_matcher(game,master_list)))
                 blacklist_obj = Blacklist(id=game)
                 session.add(blacklist_obj)
             try:
