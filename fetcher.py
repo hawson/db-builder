@@ -133,10 +133,13 @@ def fetchdump(session, appids, master_list):
                         update_db(session, game, "highest_price", final_price)
                 else:
                     session.add(game_obj)
-            else:
-                print("ID {} : {} has invalid json, updating blacklist".format(game, name_matcher(game,master_list)))
+            elif data[game]["success"] is True and not data[game]["data"]:
+                print("ID {} : {} is f2p or demo or trailer; updating blacklist".format(game, name_matcher(game,master_list)))
                 blacklist_obj = Blacklist(id=game)
                 session.add(blacklist_obj)
+            else:
+                #No price data yet, check again at later date
+                continue
             try:
                 session.commit()
             except IntegrityError as err:
