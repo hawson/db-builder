@@ -33,7 +33,7 @@ class Game(Base):
     __tablename__ = 'games'
     id = Column(Integer, primary_key=True)
     name = Column(String(100))
-    last_update = Column(DateTime, onupdate=datetime.datetime.utcnow)
+    last_price_change = Column(DateTime)
     init_price = Column(Integer, default=0)
     final_price = Column(Integer, default=0)
     lowest_price = Column(Integer, default=0)
@@ -122,16 +122,17 @@ def fetchdump(session, appids, master_list):
                 final_price = data[game]["data"]["price_overview"]["final"]
                 name = name_matcher(game, master_list)
                 curtime = datetime.datetime.utcnow()
-                game_obj = Game(id=game, name=name, init_price=init_price, final_price=final_price, lowest_price=final_price, highest_price=init_price, last_update=curtime)
                 price_check = query_db(session, game)
                 if price_check:
                     if price_check.final_price != final_price:
                         update_db(session, game, "final_price", final_price)
+                        update_db(session, game, "last_price_change", curtime)
                     if price_check.lowest_price > final_price:
                         update_db(session, game, "lowest_price", final_price)
                     if price_check.highest_price < final_price:
                         update_db(session, game, "highest_price", final_price)
                 else:
+                    game_obj = Game(id=game, name=name, init_price=init_price, final_price=final_price, lowest_price=final_price, highest_price=init_price, last_price_change=curtime)
                     session.add(game_obj)
             elif data[game]["success"] is True and not data[game]["data"]:
                 print("ID {} : {} is f2p or demo or trailer; updating blacklist".format(game, name_matcher(game,master_list)))
