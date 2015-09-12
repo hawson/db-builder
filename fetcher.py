@@ -100,11 +100,14 @@ def list_split(session, applist, master_list):
 #Main routine for fetching the current price per game
 def fetchdump(session, appids, master_list):
     for applist in appids:
+
         params = {
             "appids": ",".join(applist),
             "filters": "price_overview"
         }
+
         response = requests.get(API_URL, params=params)
+
         try:
             data = response.json()
         except:
@@ -113,16 +116,20 @@ def fetchdump(session, appids, master_list):
                 print("ID {} : {} has invalid json, updating blacklist".format(game, name_matcher(game,master_list)))
                 blacklist_obj = Blacklist(id=game)
                 session.add(blacklist_obj)
+
             else:
                 list_split(session, applist, master_list)
             continue
+
         for game in data:
             if data[game]["success"] is True and data[game]["data"]:
+                print("ID {:>6} : {} is a valid game".format(game, name_matcher(game,master_list)))
                 init_price = data[game]["data"]["price_overview"]["initial"]
                 final_price = data[game]["data"]["price_overview"]["final"]
                 name = name_matcher(game, master_list)
                 curtime = datetime.datetime.utcnow()
                 price_check = query_db(session, game)
+
                 if price_check:
                     if price_check.final_price != final_price:
                         update_db(session, game, "final_price", final_price)
@@ -131,21 +138,28 @@ def fetchdump(session, appids, master_list):
                         update_db(session, game, "lowest_price", final_price)
                     if price_check.highest_price < final_price:
                         update_db(session, game, "highest_price", final_price)
+
                 else:
                     game_obj = Game(id=game, name=name, init_price=init_price, final_price=final_price, lowest_price=final_price, highest_price=init_price, last_price_change=curtime)
                     session.add(game_obj)
+
             elif data[game]["success"] is True and not data[game]["data"]:
-                print("ID {} : {} is f2p or demo or trailer; updating blacklist".format(game, name_matcher(game,master_list)))
+                print("ID {:>6} : {} is f2p or demo or trailer; updating blacklist".format(game, name_matcher(game,master_list)))
                 blacklist_obj = Blacklist(id=game)
                 session.add(blacklist_obj)
+
             else:
                 #No price data yet, check again at later date
+                print("ID {:>6} : {} lacks price data.".format(game, name_matcher(game,master_list)))
                 continue
+
             try:
                 session.commit()
             except IntegrityError as err:
                 print("Error updating DB! {}".format(err))
+
         print("Sleeping {} seconds until the next batch".format(SLEEPER))
+
         try:
             time.sleep(SLEEPER)
         except KeyboardInterrupt:
@@ -169,7 +183,9 @@ def main():
         if game["appid"] not in blacklist:
             appids.append(str(game["appid"]))
         else:
-            print("Skipping ID {}:{} because it is blacklisted".format(game["appid"], game["name"]))
+            print("Skipping ID {:>6} : {} because it is blacklisted".format(game["appid"], game["name"]))
+
+    # Chunk the main master list
     appids = list(chunker(appids, LIMIT))
     #json_game_db = dump_game_db(session)
     fetchdump(session, appids, master_list)
