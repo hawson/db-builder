@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 '''
 Description: Fetches a list of all the Steam ID's and checks the 
 current pricing of each game
