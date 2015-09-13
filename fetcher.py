@@ -198,17 +198,9 @@ def main():
     # Build our current blacklist (list of Blacklist objects)
     blacklist = build_blacklist(session)
 
-
-    # this is a simple list of game IDs (ints)
-    appids = []
-
-    # Build 'appids' list thusly:  master_list - blacklisted  (use sets instead?)
     for game in master_list:
-        if game["appid"] not in blacklist:
-            appids.append(str(game["appid"]))
-        else:
+        if game["appid"] in blacklist:
             print("Skipping ID {:>6} : Blacklisted: {}".format(game["appid"], game["name"]))
-
 
     # Get list of game IDs for which we already have data
     games_w_data = games_with_data(session)
@@ -219,7 +211,6 @@ def main():
 
     print("Games total: {}".format(len(master_list)))
     print("Games blacklisted: {}".format(len(blacklist)))
-    print("Game appids (total - blacklist): {}".format(len(appids)))
     print("Games with data in DB: {}".format(len(games_w_data)))
     print("Games without data (total-DB): {}".format(len(games_wo_data)))
 
