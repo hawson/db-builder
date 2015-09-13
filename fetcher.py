@@ -58,6 +58,12 @@ def build_list():
     game_list = response.json()["applist"]["apps"]
     return game_list
 
+
+# Returns list of game ids (ints) stored in the database.
+def games_with_data(session):
+    return [ g[0] for g in session.query(Game.id,Game.name).all() ]
+
+
 #Maps the Steam ID to an actual name
 def name_matcher(appid, master_list):
     for game in master_list:
