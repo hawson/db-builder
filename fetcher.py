@@ -83,6 +83,7 @@ def build_blacklist(session):
         blacklist.append(black.id)
     return blacklist
 
+
 #Updates the game DB
 def update_db(session, game, field, value):
     try:
@@ -98,6 +99,10 @@ def list_split(session, applist, master_list):
     return
 
 #Main routine for fetching the current price per game
+# Arguments:
+#   a DB session object
+#   a list of game IDs to query
+#   a FULL LIST OF ALL GAMES EVAR  (yuck)
 def fetchdump(session, appids, master_list):
     for applist in appids:
 
@@ -123,7 +128,7 @@ def fetchdump(session, appids, master_list):
 
         for game in data:
             if data[game]["success"] is True and data[game]["data"]:
-                print("ID {:>6} : {} is a valid game".format(game, name_matcher(game,master_list)))
+                print("ID {:>6} : Updating prices on {}".format(game, name_matcher(game,master_list)))
                 init_price = data[game]["data"]["price_overview"]["initial"]
                 final_price = data[game]["data"]["price_overview"]["final"]
                 name = name_matcher(game, master_list)
@@ -131,6 +136,7 @@ def fetchdump(session, appids, master_list):
                 price_check = query_db(session, game)
 
                 if price_check:
+                    # If found in DB...
                     if price_check.final_price != final_price:
                         update_db(session, game, "final_price", final_price)
                         update_db(session, game, "last_price_change", curtime)
@@ -140,17 +146,18 @@ def fetchdump(session, appids, master_list):
                         update_db(session, game, "highest_price", final_price)
 
                 else:
+                    # not found, so add it.
                     game_obj = Game(id=game, name=name, init_price=init_price, final_price=final_price, lowest_price=final_price, highest_price=init_price, last_price_change=curtime)
                     session.add(game_obj)
 
             elif data[game]["success"] is True and not data[game]["data"]:
-                print("ID {:>6} : {} is f2p or demo or trailer; updating blacklist".format(game, name_matcher(game,master_list)))
+                print("ID {:>6} : F2P or demo: {} (updating blacklist)".format(game, name_matcher(game,master_list)))
                 blacklist_obj = Blacklist(id=game)
                 session.add(blacklist_obj)
 
             else:
                 #No price data yet, check again at later date
-                print("ID {:>6} : {} lacks price data.".format(game, name_matcher(game,master_list)))
+                print("ID {:>6} : Lacks price data upstream (skipping): {}".format(game, name_matcher(game,master_list)))
                 continue
 
             try:
