@@ -7,6 +7,7 @@ import time
 import requests
 import json
 import datetime
+import random
 from sqlalchemy import create_engine, ForeignKey
 from sqlalchemy import Column, Date, DateTime, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
@@ -79,7 +80,7 @@ def query_db(session, game):
         print("Error, multiple entries found for ID: {}".format(game))
         return False
     except NoResultFound:
-        print("No results found for ID {}. Updating DB".format(game))
+        print("No local results found for ID {}. Updating DB".format(game))
         return False
 
 #Builds a list of all the blacklist ID's (Those that have no price)
@@ -189,19 +190,53 @@ def main():
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     session = Session()
-    blacklist = build_blacklist(session)
+
+    # Fetch list of dicts objects from Steam (game ID/name pairs)
     master_list = build_list()
+    all_game_ids = [ game['appid'] for game in master_list ]
+
+    # Build our current blacklist (list of Blacklist objects)
+    blacklist = build_blacklist(session)
+
+
+    # this is a simple list of game IDs (ints)
     appids = []
+
+    # Build 'appids' list thusly:  master_list - blacklisted  (use sets instead?)
     for game in master_list:
         if game["appid"] not in blacklist:
             appids.append(str(game["appid"]))
         else:
-            print("Skipping ID {:>6} : {} because it is blacklisted".format(game["appid"], game["name"]))
+            print("Skipping ID {:>6} : Blacklisted: {}".format(game["appid"], game["name"]))
+
+
+    # Get list of game IDs for which we already have data
+    games_w_data = games_with_data(session)
+
+    # Build list of game IDs that lack data.
+    games_wo_data = list(set(all_game_ids) - set(blacklist) - set(games_w_data))
+
+
+    print("Games total: {}".format(len(master_list)))
+    print("Games blacklisted: {}".format(len(blacklist)))
+    print("Game appids (total - blacklist): {}".format(len(appids)))
+    print("Games with data in DB: {}".format(len(games_w_data)))
+    print("Games without data (total-DB): {}".format(len(games_wo_data)))
+
+
+    # Shuffle, shuffle
+    random.shuffle(games_w_data)
+    random.shuffle(games_wo_data)
+
+    ids_to_check = games_wo_data
+    ids_to_check.extend(games_w_data)
+    ids_to_check = list(map(str,ids_to_check))
 
     # Chunk the main master list
-    appids = list(chunker(appids, LIMIT))
+    ids_to_check = list(chunker(ids_to_check, LIMIT))
+
     #json_game_db = dump_game_db(session)
-    fetchdump(session, appids, master_list)
+    fetchdump(session, ids_to_check, master_list)
 
 if __name__ == "__main__":
     main()
