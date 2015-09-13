@@ -111,6 +111,8 @@ def list_split(session, applist, master_list):
 #   a list of game IDs to query
 #   a FULL LIST OF ALL GAMES EVAR  (yuck)
 def fetchdump(session, appids, master_list):
+
+    all_game_ids = [ game['appid'] for game in master_list ]
     for applist in appids:
 
         params = {
@@ -172,6 +174,7 @@ def fetchdump(session, appids, master_list):
             except IntegrityError as err:
                 print("Error updating DB! {}".format(err))
 
+        print_stats(session,master_list)
         print("Sleeping {} seconds until the next batch".format(SLEEPER))
 
         try:
@@ -179,11 +182,28 @@ def fetchdump(session, appids, master_list):
         except KeyboardInterrupt:
             exit(1)
 
+
+def print_stats(session,master_list):
+
+    all_game_ids = [ game['appid'] for game in master_list ]
+    blacklist = build_blacklist(session)
+    games_w_data = games_with_data(session)
+    games_wo_data = list(set(all_game_ids) - set(blacklist) - set(games_w_data))
+
+    print("Games total: {}".format(len(master_list)))
+    print("Games blacklisted: {}".format(len(blacklist)))
+    print("Games with data in DB: {}".format(len(games_w_data)))
+    print("Games without data (total-DB): {}".format(len(games_wo_data)))
+    print("Total games to check: {}".format(len(games_wo_data)+len(games_w_data)))
+
+
+
 #Routine for splitting up the queries into chunks of a certain limit
 def chunker(l, n):
     """Yield successive n-sized chunks from list l."""
     for i in range(0, len(l), n):
         yield l[i:i+n]
+
 
 #Main method (starting point)
 def main():
@@ -208,12 +228,7 @@ def main():
     # Build list of game IDs that lack data.
     games_wo_data = list(set(all_game_ids) - set(blacklist) - set(games_w_data))
 
-
-    print("Games total: {}".format(len(master_list)))
-    print("Games blacklisted: {}".format(len(blacklist)))
-    print("Games with data in DB: {}".format(len(games_w_data)))
-    print("Games without data (total-DB): {}".format(len(games_wo_data)))
-
+    print_stats(session,master_list)
 
     # Shuffle, shuffle
     random.shuffle(games_w_data)
