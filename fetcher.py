@@ -7,6 +7,7 @@ import time
 import requests
 import json
 import datetime
+import random
 from sqlalchemy import create_engine, ForeignKey
 from sqlalchemy import Column, Date, DateTime, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
@@ -58,6 +59,12 @@ def build_list():
     game_list = response.json()["applist"]["apps"]
     return game_list
 
+
+# Returns list of game ids (ints) stored in the database.
+def games_with_data(session):
+    return [ g[0] for g in session.query(Game.id,Game.name).all() ]
+
+
 #Maps the Steam ID to an actual name
 def name_matcher(appid, master_list):
     for game in master_list:
@@ -73,7 +80,7 @@ def query_db(session, game):
         print("Error, multiple entries found for ID: {}".format(game))
         return False
     except NoResultFound:
-        print("No results found for ID {}. Updating DB".format(game))
+        print("No local results found for ID {}. Updating DB".format(game))
         return False
 
 #Builds a list of all the blacklist ID's (Those that have no price)
@@ -82,6 +89,7 @@ def build_blacklist(session):
     for black in session.query(Blacklist).all():
         blacklist.append(black.id)
     return blacklist
+
 
 #Updates the game DB
 def update_db(session, game, field, value):
@@ -98,13 +106,22 @@ def list_split(session, applist, master_list):
     return
 
 #Main routine for fetching the current price per game
+# Arguments:
+#   a DB session object
+#   a list of game IDs to query
+#   a FULL LIST OF ALL GAMES EVAR  (yuck)
 def fetchdump(session, appids, master_list):
+
+    all_game_ids = [ game['appid'] for game in master_list ]
     for applist in appids:
+
         params = {
             "appids": ",".join(applist),
             "filters": "price_overview"
         }
+
         response = requests.get(API_URL, params=params)
+
         try:
             data = response.json()
         except:
@@ -113,17 +130,22 @@ def fetchdump(session, appids, master_list):
                 print("ID {} : {} has invalid json, updating blacklist".format(game, name_matcher(game,master_list)))
                 blacklist_obj = Blacklist(id=game)
                 session.add(blacklist_obj)
+
             else:
                 list_split(session, applist, master_list)
             continue
+
         for game in data:
             if data[game]["success"] is True and data[game]["data"]:
+                print("ID {:>6} : Updating prices on {}".format(game, name_matcher(game,master_list)))
                 init_price = data[game]["data"]["price_overview"]["initial"]
                 final_price = data[game]["data"]["price_overview"]["final"]
                 name = name_matcher(game, master_list)
                 curtime = datetime.datetime.utcnow()
                 price_check = query_db(session, game)
+
                 if price_check:
+                    # If found in DB...
                     if price_check.final_price != final_price:
                         update_db(session, game, "final_price", final_price)
                         update_db(session, game, "last_price_change", curtime)
@@ -131,25 +153,50 @@ def fetchdump(session, appids, master_list):
                         update_db(session, game, "lowest_price", final_price)
                     if price_check.highest_price < final_price:
                         update_db(session, game, "highest_price", final_price)
+
                 else:
+                    # not found, so add it.
                     game_obj = Game(id=game, name=name, init_price=init_price, final_price=final_price, lowest_price=final_price, highest_price=init_price, last_price_change=curtime)
                     session.add(game_obj)
+
             elif data[game]["success"] is True and not data[game]["data"]:
-                print("ID {} : {} is f2p or demo or trailer; updating blacklist".format(game, name_matcher(game,master_list)))
+                print("ID {:>6} : F2P or demo: {} (updating blacklist)".format(game, name_matcher(game,master_list)))
                 blacklist_obj = Blacklist(id=game)
                 session.add(blacklist_obj)
+
             else:
                 #No price data yet, check again at later date
+                print("ID {:>6} : Lacks price data upstream (skipping): {}".format(game, name_matcher(game,master_list)))
                 continue
+
             try:
                 session.commit()
             except IntegrityError as err:
                 print("Error updating DB! {}".format(err))
+
+        print_stats(session,master_list)
         print("Sleeping {} seconds until the next batch".format(SLEEPER))
+
         try:
             time.sleep(SLEEPER)
         except KeyboardInterrupt:
             exit(1)
+
+
+def print_stats(session,master_list):
+
+    all_game_ids = [ game['appid'] for game in master_list ]
+    blacklist = build_blacklist(session)
+    games_w_data = games_with_data(session)
+    games_wo_data = list(set(all_game_ids) - set(blacklist) - set(games_w_data))
+
+    print("Games total: {}".format(len(master_list)))
+    print("Games blacklisted: {}".format(len(blacklist)))
+    print("Games with data in DB: {}".format(len(games_w_data)))
+    print("Games without data (total-DB): {}".format(len(games_wo_data)))
+    print("Total games to check: {}".format(len(games_wo_data)+len(games_w_data)))
+
+
 
 #Routine for splitting up the queries into chunks of a certain limit
 def chunker(l, n):
@@ -157,22 +204,45 @@ def chunker(l, n):
     for i in range(0, len(l), n):
         yield l[i:i+n]
 
+
 #Main method (starting point)
 def main():
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     session = Session()
-    blacklist = build_blacklist(session)
+
+    # Fetch list of dicts objects from Steam (game ID/name pairs)
     master_list = build_list()
-    appids = []
+    all_game_ids = [ game['appid'] for game in master_list ]
+
+    # Build our current blacklist (list of Blacklist objects)
+    blacklist = build_blacklist(session)
+
     for game in master_list:
-        if game["appid"] not in blacklist:
-            appids.append(str(game["appid"]))
-        else:
-            print("Skipping ID {}:{} because it is blacklisted".format(game["appid"], game["name"]))
-    appids = list(chunker(appids, LIMIT))
+        if game["appid"] in blacklist:
+            print("Skipping ID {:>6} : Blacklisted: {}".format(game["appid"], game["name"]))
+
+    # Get list of game IDs for which we already have data
+    games_w_data = games_with_data(session)
+
+    # Build list of game IDs that lack data.
+    games_wo_data = list(set(all_game_ids) - set(blacklist) - set(games_w_data))
+
+    print_stats(session,master_list)
+
+    # Shuffle, shuffle
+    random.shuffle(games_w_data)
+    random.shuffle(games_wo_data)
+
+    ids_to_check = games_wo_data
+    ids_to_check.extend(games_w_data)
+    ids_to_check = list(map(str,ids_to_check))
+
+    # Chunk the main master list
+    ids_to_check = list(chunker(ids_to_check, LIMIT))
+
     #json_game_db = dump_game_db(session)
-    fetchdump(session, appids, master_list)
+    fetchdump(session, ids_to_check, master_list)
 
 if __name__ == "__main__":
     main()
