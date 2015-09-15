@@ -118,9 +118,9 @@ def build_blacklist(session):
 
 
 #Updates the game DB
-def update_db(session, game, field, value):
+def update_db(session, table, game, field, value):
     try:
-        session.query(Game).filter_by(id=game).update({field: value})
+        session.query(table).filter_by(id=game).update({field: value})
     except:
         print("Unknown error occured updating the DB!")
 
@@ -146,7 +146,9 @@ def fetchdump(session, appids, master_list):
             "filters": "price_overview"
         }
 
+        curtime = datetime.datetime.utcnow()
         response = requests.get(API_URL, params=params)
+        print("Fetching URL: {}". format(response.url))
 
         try:
             data = response.json()
@@ -164,26 +166,30 @@ def fetchdump(session, appids, master_list):
         for game in data:
             if data[game]["success"] is True and data[game]["data"]:
                 print("ID {:>6} : Updating prices on {}".format(game, name_matcher(game,master_list)))
-                init_price = data[game]["data"]["price_overview"]["initial"]
+
+                init_price  = data[game]["data"]["price_overview"]["initial"]
                 final_price = data[game]["data"]["price_overview"]["final"]
                 name = name_matcher(game, master_list)
-                curtime = datetime.datetime.utcnow()
-                price_check = query_db(session, game)
 
-                if price_check:
-                    # If found in DB...
-                    if price_check.final_price != final_price:
-                        update_db(session, game, "final_price", final_price)
-                        update_db(session, game, "last_price_change", curtime)
-                    if price_check.lowest_price > final_price:
-                        update_db(session, game, "lowest_price", final_price)
-                    if price_check.highest_price < final_price:
-                        update_db(session, game, "highest_price", final_price)
+                game_found = query_db(session, game)
 
-                else:
+                if not game_found:
                     # not found, so add it.
-                    game_obj = Game(id=game, name=name, init_price=init_price, final_price=final_price, lowest_price=final_price, highest_price=init_price, last_price_change=curtime)
+                    game_obj = Game(id=game, name=name, last_update=curtime)
                     session.add(game_obj)
+
+                # If we have a price, compare it to the last one.
+                # If different, add a new record, otherwise just update
+                # the TS on the existing one.
+                last_price_found = last_price(session, game)
+
+                # if the current prices match the last one, just update the TS
+                if last_price_found and (last_price_found.final_price == final_price) and (last_price_found.init_price == init_price):
+                    update_db(session, Prices, game, "last_price_change", curtime)
+                else:
+                    price_obj = Prices(game_id=game, final_price=final_price, init_price=init_price, timestamp=curtime)
+                    session.add(price_obj)
+
 
             elif data[game]["success"] is True and not data[game]["data"]:
                 print("ID {:>6} : F2P or demo: {} (updating blacklist)".format(game, name_matcher(game,master_list)))
