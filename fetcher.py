@@ -33,17 +33,25 @@ class Blacklist(Base):
 class Game(Base):
     __tablename__ = 'games'
     id = Column(Integer, primary_key=True)
-    name = Column(String(100))
-    last_price_change = Column(DateTime)
-    init_price = Column(Integer, default=0)
-    final_price = Column(Integer, default=0)
-    lowest_price = Column(Integer, default=0)
-    highest_price = Column(Integer, default=0)
+    name = Column(String(256), nullable=False)
+    last_update = Column(DateTime, nullable=False)
 
     def __repr__(self):
-        return "<Game(id='{}', name='{}', last_price_change='{}', initial_price='{}', final_price='{}')>".format(self.id, self.name, self.last_price_change, self.init_price, self.final_price)
+        return "<Game(id='{}', name='{}', last_update='{}')>".format(self.id, self.name, self.last_update)
 
-#Dumps the game database
+class Prices(Base):
+    __tablename__ = 'prices'
+    game_id = Column(Integer, primary_key=True)
+    timestamp = Column(DateTime, nullable=False)
+    init_price = Column(Integer, nullable=False)
+    final_price = Column(Integer, nullable=False)
+
+    def __repr__(self):
+        return "<Prices(gameid='{}', timestamp='{}', init_price='{}', final_price='{}'>" . format(self.gameid, self.timestamp, self.init_price, self.final_price)
+
+
+
+#Dumps the game database (not including prices)
 def dump_game_db(session):
     dump = {}
     for g in session.query(Game).all():
@@ -82,6 +90,21 @@ def query_db(session, game):
     except NoResultFound:
         print("No local results found for ID {}. Updating DB".format(game))
         return False
+
+
+def last_price_update(session,game_id):
+    try:
+        result = session.query(func.max(Prices)).filter_by(game_id=game_id).one()
+        return result
+
+    except MultipleResultsFound:
+        print("Error, multiple entries found for ID: {}".format(game_id))
+        return False
+
+    except NoResultFound:
+        print("No price history found for ID {}. Updating DB".format(game_id))
+        return False
+
 
 #Builds a list of all the blacklist ID's (Those that have no price)
 def build_blacklist(session):
