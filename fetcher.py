@@ -42,7 +42,7 @@ class Game(Base):
 class Prices(Base):
     __tablename__ = 'prices'
     game_id = Column(Integer, primary_key=True)
-    timestamp = Column(DateTime, nullable=False)
+    timestamp = Column(DateTime, nullable=False, primary_key=True)
     init_price = Column(Integer, nullable=False)
     final_price = Column(Integer, nullable=False)
 
