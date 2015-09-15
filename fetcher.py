@@ -82,7 +82,7 @@ def name_matcher(appid, master_list):
         if int(appid) == game['appid']:
             return game['name']
 
-#Queries the game DB
+#Queries the DB "Game" table for a given ID
 def query_db(session, game):
     try:
         result = session.query(Game).filter_by(id=game).one()
@@ -95,17 +95,17 @@ def query_db(session, game):
         return False
 
 
-def last_price_update(session,game_id):
+def last_price(session,gid):
     try:
-        result = session.query(func.max(Prices)).filter_by(game_id=game_id).one()
+        result = session.query(Prices).filter_by(game_id=gid).order_by(Prices.timestamp.desc()).one()
         return result
 
     except MultipleResultsFound:
-        print("Error, multiple entries found for ID: {}".format(game_id))
+        print("Error, multiple entries found for ID: {}".format(gid))
         return False
 
     except NoResultFound:
-        print("No price history found for ID {}. Updating DB".format(game_id))
+        print("No price history found for ID {}. Updating DB".format(gid))
         return False
 
 
