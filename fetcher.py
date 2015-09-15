@@ -205,14 +205,7 @@ def chunker(l, n):
         yield l[i:i+n]
 
 
-#Main method (starting point)
-def main():
-    Base.metadata.create_all(engine)
-    Session = sessionmaker(bind=engine)
-    session = Session()
-
-    # Fetch list of dicts objects from Steam (game ID/name pairs)
-    master_list = build_list()
+def get_ids_to_check(session, master_list):
     all_game_ids = [ game['appid'] for game in master_list ]
 
     # Build our current blacklist (list of Blacklist objects)
@@ -239,9 +232,25 @@ def main():
     ids_to_check = list(map(str,ids_to_check))
 
     # Chunk the main master list
-    ids_to_check = list(chunker(ids_to_check, LIMIT))
+    return list(chunker(ids_to_check, LIMIT))
+
+
+
+
+#Main method (starting point)
+def main():
+
+    # Setup DB connection
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    # Fetch list of dicts objects from Steam (game ID/name pairs)
+    master_list = build_list()
 
     #json_game_db = dump_game_db(session)
+
+    ids_to_check = get_ids_to_check(session, master_list)
     fetchdump(session, ids_to_check, master_list)
 
 if __name__ == "__main__":
