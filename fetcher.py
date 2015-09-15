@@ -10,17 +10,20 @@ import datetime
 import random
 from sqlalchemy import create_engine, ForeignKey
 from sqlalchemy import Column, Date, DateTime, Integer, String
+from sqlalchemy import desc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
+from sqlalchemy.sql import func
+
 
 #Globals
 engine = create_engine('sqlite:///games.db')
 Base = declarative_base()
 API_URL = "http://store.steampowered.com/api/appdetails/"
-LIMIT = 200
-SLEEPER = 10
+LIMIT = 2
+SLEEPER = 1
 
 #DB Table descriptions
 class Blacklist(Base):
