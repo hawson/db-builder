@@ -22,8 +22,8 @@ from sqlalchemy.sql import func
 engine = create_engine('sqlite:///games.db')
 Base = declarative_base()
 API_URL = "http://store.steampowered.com/api/appdetails/"
-LIMIT = 2
-SLEEPER = 1
+LIMIT = 200
+SLEEPER = 5
 
 #DB Table descriptions
 class Blacklist(Base):
@@ -191,6 +191,7 @@ def fetchdump(session, appids, master_list):
                     session.add(price_obj)
 
 
+            # We can "successfully" get nothing when asking about prices. This covers demos, F2P games, etc
             elif data[game]["success"] is True and not data[game]["data"]:
                 print("ID {:>6} : F2P or demo: {} (updating blacklist)".format(game, name_matcher(game,master_list)))
                 blacklist_obj = Blacklist(id=game)
