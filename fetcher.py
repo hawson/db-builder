@@ -131,6 +131,16 @@ def list_split(session, applist, master_list):
     fetchdump(session, newapplist, master_list)
     return
 
+
+def dump_blacklist(session,master_list):
+    blacklist=build_blacklist(session)
+
+    for game in master_list:
+        if game["appid"] in blacklist:
+            print("Skipping ID {:>6} : Blacklisted: {}".format(game["appid"], game["name"]))
+
+
+
 #Main routine for fetching the current price per game
 # Arguments:
 #   a DB session object
@@ -243,10 +253,6 @@ def get_ids_to_check(session, master_list):
 
     # Build our current blacklist (list of Blacklist objects)
     blacklist = build_blacklist(session)
-
-    for game in master_list:
-        if game["appid"] in blacklist:
-            print("Skipping ID {:>6} : Blacklisted: {}".format(game["appid"], game["name"]))
 
     # Get list of game IDs for which we already have data
     games_w_data = games_with_data(session)
