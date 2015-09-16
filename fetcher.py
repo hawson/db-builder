@@ -127,8 +127,10 @@ def build_blacklist(session):
 def update_db(session, table, game, field, value):
     try:
         session.query(table).filter_by(id=game).update({field: value})
-    except:
-        print("Unknown error occured updating the DB!")
+    except Exception as e:
+        print("Unknown error occured updating the DB! {}".format(type(e).__name__))
+        print(sys.exc_info()[0])
+
 
 # Split a problematic list in half to try and identify the bad ID for blacklisting.
 def list_split(session, applist, master_list):
