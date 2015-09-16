@@ -64,9 +64,15 @@ def dump_game_db(session):
     return output
 
 #Builds list of all the possible Steam ID's
+# returned as a list of dicts (decoded from JSON)
 def build_list():
     URL = "http://api.steampowered.com/ISteamApps/GetAppList/v2"
-    response = requests.get(URL)
+    try:
+        response = requests.get(URL)
+    except:
+        print("Failed to get a list of games from Steam!")
+        return False
+
     game_list = response.json()["applist"]["apps"]
     return game_list
 
@@ -286,6 +292,11 @@ def main():
 
     # Fetch list of dicts objects from Steam (game ID/name pairs)
     master_list = build_list()
+
+    if not master_list:
+        print("exiting!")
+        exit(1)
+
 
     #json_game_db = dump_game_db(session)
 
