@@ -162,14 +162,24 @@ def fetchdump(session, appids, master_list):
             "filters": "price_overview"
         }
 
+        params_str = '&'.join([ '='.join([x,params[x]]) for x in params.keys() ] )
+
         curtime = datetime.datetime.utcnow()
-        response = requests.get(API_URL, params=params)
-        print("Fetching URL: {}". format(response.url))
+        print("Fetching URL {}". format(''.join(list([API_URL,params_str]))))
+
+        try:
+            response = requests.get(API_URL, params=params)
+        except Exception as e:
+            print("Exception occured: {}".format(type(e).__name__))
+            continue
+
 
         try:
             data = response.json()
-        except:
+        except Exception as e:
             print("Error requesting data for the following ids: {} \n continuing after splitting them up and retrying".format(", ".join(applist)))
+            print("Error type is [{}]".format(type(e).__name__))
+
             if len(applist) <= 1:
                 print("ID {} : {} has invalid json, updating blacklist".format(game, name_matcher(game,master_list)))
                 blacklist_obj = Blacklist(id=game)
