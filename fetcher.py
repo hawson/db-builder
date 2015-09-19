@@ -3,6 +3,8 @@
 Description: Fetches a list of all the Steam ID's and checks the 
 current pricing of each game
 '''
+
+import sys
 import time
 import requests
 import json
@@ -29,7 +31,6 @@ SLEEPER = 1
 class Blacklist(Base):
     __tablename__ = 'blacklist'
     id = Column(Integer, primary_key=True)
-
     def __repr__(self):
         return "<Blacklist(id='{}')>".format(self.id)
 
@@ -44,14 +45,22 @@ class Game(Base):
 
 class Prices(Base):
     __tablename__ = 'prices'
-    game_id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True)
     timestamp = Column(DateTime, nullable=False, primary_key=True)
     init_price = Column(Integer, nullable=False)
     final_price = Column(Integer, nullable=False)
 
     def __repr__(self):
-        return "<Prices(gameid='{}', timestamp='{}', init_price='{}', final_price='{}'>" . format(self.gameid, self.timestamp, self.init_price, self.final_price)
+        return "<Prices(id='{}', timestamp='{}', init_price='{}', final_price='{}'>" . format(self.id, self.timestamp, self.init_price, self.final_price)
 
+
+# This table stores things we've seen recently, but skipped because they lacked price infomration
+class Skipped(Base):
+    __tablename__ = 'skipped'
+    id = Column(Integer, primary_key=True, nullable=False)
+    timestamp = Column(DateTime, nullable=False)
+    def __repr__(self):
+        return "<Skipped(id='{}', timestamp='{}')>".format(self.id, self.timestamp)
 
 
 #Dumps the game database (not including prices)
@@ -105,7 +114,7 @@ def query_db(session, game):
 
 def last_price(session,gid):
     try:
-        result = session.query(Prices).filter_by(game_id=gid).order_by(Prices.timestamp.desc()).one()
+        result = session.query(Prices).filter_by(id=gid).order_by(Prices.timestamp.desc()).one()
         return result
 
     except MultipleResultsFound:
@@ -123,6 +132,18 @@ def build_blacklist(session):
     for black in session.query(Blacklist).all():
         blacklist.append(black.id)
     return blacklist
+
+
+
+def build_skipped_list(session,timeout='1 day'):
+    try:
+        skipped = session.query(Skipped.id).filter_by(Skipped.timestamp+timedelta(days=-1) < datetime.now()).all()
+        return skipped
+
+    except Exception as e:
+        print("Unknown error occured building skipped_list! {}".format(type(e).__name__))
+        print(sys.exc_info()[0])
+
 
 
 #Updates the game DB
@@ -219,7 +240,7 @@ def fetchdump(session, appids, master_list):
                 if last_price_found and (last_price_found.final_price == final_price) and (last_price_found.init_price == init_price):
                     update_db(session, Prices, game, "last_price_change", curtime)
                 else:
-                    price_obj = Prices(game_id=game, final_price=final_price, init_price=init_price, timestamp=curtime)
+                    price_obj = Prices(id=game, final_price=final_price, init_price=init_price, timestamp=curtime)
                     session.add(price_obj)
 
 
@@ -232,6 +253,8 @@ def fetchdump(session, appids, master_list):
             else:
                 #No price data yet, check again at later date
                 print("ID {:>6} : Lacks price data upstream (skipping): {}".format(game, name_matcher(game,master_list)))
+                skip_obj=Skipped(id=game,timestamp=curtime)
+                session.add(skip_obj)
                 continue
 
             try:
@@ -252,14 +275,20 @@ def print_stats(session,master_list):
 
     all_game_ids = [ game['appid'] for game in master_list ]
     blacklist = build_blacklist(session)
+    skipped = build_skipped_list(session)
     games_w_data = games_with_data(session)
     games_wo_data = list(set(all_game_ids) - set(blacklist) - set(games_w_data))
 
+
     print("Games total: {}".format(len(master_list)))
     print("Games blacklisted: {}".format(len(blacklist)))
+    if skipped:
+        print("Games skipped: {}".format(len(skipped)))
+    else:
+        skipped = []
     print("Games with data in DB: {}".format(len(games_w_data)))
     print("Games without data (total-DB): {}".format(len(games_wo_data)))
-    print("Total games to check: {}".format(len(games_wo_data)+len(games_w_data)))
+    print("Total games to check: {}".format(len(games_wo_data)+len(games_w_data)-len(skipped)))
 
 
 
@@ -273,14 +302,20 @@ def chunker(l, n):
 def get_ids_to_check(session, master_list):
     all_game_ids = [ game['appid'] for game in master_list ]
 
-    # Build our current blacklist (list of Blacklist objects)
+    # Build our current blacklist (list of Blacklist objects),
+    # and skipped games
     blacklist = build_blacklist(session)
+    skipped = build_skipped_list(session)
 
     # Get list of game IDs for which we already have data
     games_w_data = games_with_data(session)
 
     # Build list of game IDs that lack data.
-    games_wo_data = list(set(all_game_ids) - set(blacklist) - set(games_w_data))
+    games_wo_data = set(all_game_ids) - set(blacklist) - set(games_w_data)
+    if skipped:
+        games_wo_data = games_wo_data - set(skipped)
+    games_wo_data = list(games_wo_data)
+
 
     print_stats(session,master_list)
 
