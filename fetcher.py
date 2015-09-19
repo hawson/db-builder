@@ -23,7 +23,7 @@ engine = create_engine('sqlite:///games.db')
 Base = declarative_base()
 API_URL = "http://store.steampowered.com/api/appdetails/"
 LIMIT = 200
-SLEEPER = 5
+SLEEPER = 1
 
 #DB Table descriptions
 class Blacklist(Base):
