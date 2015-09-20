@@ -73,6 +73,8 @@ def build_list():
         print("Failed to get a list of games from Steam!")
         return False
 
+
+    print("Game list received, size {} bytes".format(len(response.text)))
     game_list = response.json()["applist"]["apps"]
     return game_list
 
@@ -174,6 +176,8 @@ def fetchdump(session, appids, master_list):
         except Exception as e:
             print("Exception occured: {}".format(type(e).__name__))
             continue
+
+        print("Price data received, size {} bytes".format(len(response.text)))
 
 
         try:
