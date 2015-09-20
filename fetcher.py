@@ -22,7 +22,7 @@ from sqlalchemy.sql import func
 engine = create_engine('sqlite:///games.db')
 Base = declarative_base()
 API_URL = "http://store.steampowered.com/api/appdetails/"
-LIMIT = 200
+LIMIT = 150
 SLEEPER = 1
 
 #DB Table descriptions
