@@ -5,6 +5,7 @@ current pricing of each game
 '''
 
 import sys
+import traceback
 import time
 import requests
 import json
@@ -12,7 +13,7 @@ import datetime
 import random
 from sqlalchemy import create_engine, ForeignKey
 from sqlalchemy import Column, Date, DateTime, Integer, String
-from sqlalchemy import desc
+from sqlalchemy import desc, update
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
@@ -24,8 +25,12 @@ from sqlalchemy.sql import func
 engine = create_engine('sqlite:///games.db')
 Base = declarative_base()
 API_URL = "http://store.steampowered.com/api/appdetails/"
-LIMIT = 150
+LIMIT = 10
 SLEEPER = 1
+
+#skip cache offset in seconds
+skip_offset = 30
+
 
 #DB Table descriptions
 class Blacklist(Base):
@@ -71,6 +76,7 @@ def dump_game_db(session):
         #print("{} - {}".format(g.name, g.id))
     output = json.dumps(dump)
     return output
+
 
 #Builds list of all the possible Steam ID's
 # returned as a list of dicts (decoded from JSON)
@@ -134,15 +140,43 @@ def build_blacklist(session):
     return blacklist
 
 
-
-def build_skipped_list(session,timeout='1 day'):
+# Drops entries in skipped cache older than some threshold
+def drop_old_skipped(session):
     try:
-        skipped = session.query(Skipped.id).filter_by(Skipped.timestamp+timedelta(days=-1) < datetime.now()).all()
+
+        offset=datetime.datetime.utcnow() - datetime.timedelta(0,skip_offset)
+
+        #delete rows
+        print("Deleting skipped hosts older than {}".format(offset))
+
+        rows_deleted = session.query(Skipped).filter(Skipped.timestamp < offset).delete()
+        #session.commit()
+        #session.execute(Skipped.delete().where(Skipped.c.timestamp < offset))
+        if rows_deleted:
+            print("Deleted {} rows.".format(rows_deleted))
+    
+
+    except Exception as e:
+        print("Unknown error occured building skipped_list! {}".format(type(e).__name__))
+        print(traceback.format_exc())
+    
+    return
+
+
+# Return list of IDs in the skip list.
+# if an ID is in the DB for any reason, it is skipped
+def build_skipped_list(session):
+    try:
+        skipped=[]
+        for skip in session.query(Skipped).all():
+            skipped.append(skip.id)
         return skipped
 
     except Exception as e:
         print("Unknown error occured building skipped_list! {}".format(type(e).__name__))
-        print(sys.exc_info()[0])
+        print(traceback.format_exc())
+
+    return []
 
 
 
@@ -216,6 +250,9 @@ def fetchdump(session, appids, master_list):
                 list_split(session, applist, master_list)
             continue
 
+        drop_old_skipped(session)
+        skip_list = []
+
         for game in data:
             if data[game]["success"] is True and data[game]["data"]:
                 print("ID {:>6} : Updating prices on {}".format(game, name_matcher(game,master_list)))
@@ -253,14 +290,47 @@ def fetchdump(session, appids, master_list):
             else:
                 #No price data yet, check again at later date
                 print("ID {:>6} : Lacks price data upstream (skipping): {}".format(game, name_matcher(game,master_list)))
-                skip_obj=Skipped(id=game,timestamp=curtime)
-                session.add(skip_obj)
+                skip_list.append(game)
                 continue
+
+        try:
+            session.commit()
+        except IntegrityError as err:
+            print("Error updating DB! {}".format(err))
+
+
+        if len(skip_list) > 0:
+
+            query = update(Skipped).where(Skipped.id.in_(skip_list)).values(timestamp=datetime.datetime.utcnow())
+            #print("Skipped update query {}".format(query))
+            try:
+                session.execute(query)
+                #updated = session.query(Skipped).filter(Skipped.id.in_(skip_list)).update({Skipped.timestamp: datetime.datetime.utcnow()}, synchronize_session='fetch')
+
+                #if updated:
+                #    print("Updated {} rows.".format(Updated))
+
+            except Exception as err:
+                print("Error updating existing skip list entries! {}".format(err))
+
+
+            current_skipped_list = build_skipped_list(session)
+            #print("Current skipped list: {}".format(current_skipped_list))
+            #print("New skipped list: {}".format(skip_list))
+
+            for skipped_game in skip_list: 
+                if not skipped_game in current_skipped_list:
+                    skip_obj = Skipped(id=skipped_game, timestamp=curtime)
+                    session.add(skip_obj)
 
             try:
                 session.commit()
-            except IntegrityError as err:
-                print("Error updating DB! {}".format(err))
+
+            except Exception as err:
+                print("Error updating skip list with new entries {}".format(err))
+
+
+        
 
         print_stats(session,master_list)
         print("Sleeping {} seconds until the next batch".format(SLEEPER))
@@ -282,10 +352,8 @@ def print_stats(session,master_list):
 
     print("Games total: {}".format(len(master_list)))
     print("Games blacklisted: {}".format(len(blacklist)))
-    if skipped:
-        print("Games skipped: {}".format(len(skipped)))
-    else:
-        skipped = []
+    print("Games on skiplist: {}".format(len(skipped)))
+    print("Total games not checked: {}".format(len(blacklist)+len(skipped)))
     print("Games with data in DB: {}".format(len(games_w_data)))
     print("Games without data (total-DB): {}".format(len(games_wo_data)))
     print("Total games to check: {}".format(len(games_wo_data)+len(games_w_data)-len(skipped)))
@@ -303,7 +371,7 @@ def get_ids_to_check(session, master_list):
     all_game_ids = [ game['appid'] for game in master_list ]
 
     # Build our current blacklist (list of Blacklist objects),
-    # and skipped games
+    # and cached skipped games (those with no prices yet)
     blacklist = build_blacklist(session)
     skipped = build_skipped_list(session)
 
