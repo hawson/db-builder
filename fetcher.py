@@ -205,6 +205,36 @@ def dump_blacklist(session,master_list):
             print("Skipping ID {:>6} : Blacklisted: {}".format(game["appid"], game["name"]))
 
 
+def process_skipped(session, skip_list, curtime):
+
+    try:
+        query = update(Skipped).where(Skipped.id.in_(skip_list)).values(timestamp=datetime.datetime.utcnow())
+        print("Skipped update query {}".format(query))
+
+        session.execute(query)
+
+    except Exception as err:
+        print("Error updating existing skip list entries! {}".format(err))
+
+    current_skipped_list = build_skipped_list(session)
+
+    #print("Current skipped list: {}".format(current_skipped_list))
+    #print("New skipped list: {}".format(skip_list))
+
+    for skipped_game in skip_list: 
+        if not skipped_game in current_skipped_list:
+            skip_obj = Skipped(id=skipped_game, timestamp=curtime)
+            session.add(skip_obj)
+
+    try:
+        session.commit()
+
+    except Exception as err:
+        print("Error updating skip list with new entries {}".format(err))
+
+    return
+
+
 
 #Main routine for fetching the current price per game
 # Arguments:
@@ -303,34 +333,7 @@ def fetchdump(session, appids, master_list):
 
 
         if len(skip_list) > 0:
-
-            query = update(Skipped).where(Skipped.id.in_(skip_list)).values(timestamp=datetime.datetime.utcnow())
-            #print("Skipped update query {}".format(query))
-            try:
-                session.execute(query)
-                #updated = session.query(Skipped).filter(Skipped.id.in_(skip_list)).update({Skipped.timestamp: datetime.datetime.utcnow()}, synchronize_session='fetch')
-
-                #if updated:
-                #    print("Updated {} rows.".format(Updated))
-
-            except Exception as err:
-                print("Error updating existing skip list entries! {}".format(err))
-
-
-            current_skipped_list = build_skipped_list(session)
-            #print("Current skipped list: {}".format(current_skipped_list))
-            #print("New skipped list: {}".format(skip_list))
-
-            for skipped_game in skip_list: 
-                if not skipped_game in current_skipped_list:
-                    skip_obj = Skipped(id=skipped_game, timestamp=curtime)
-                    session.add(skip_obj)
-
-            try:
-                session.commit()
-
-            except Exception as err:
-                print("Error updating skip list with new entries {}".format(err))
+            process_skipped(session, skip_list, curtime)
 
 
         
