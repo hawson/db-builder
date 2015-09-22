@@ -214,6 +214,8 @@ def dump_blacklist(session,master_list):
 def fetchdump(session, appids, master_list):
 
     all_game_ids = [ game['appid'] for game in master_list ]
+
+    # "applist" is a list itself, within the larger "appids" list
     for applist in appids:
 
         params = {
@@ -222,9 +224,9 @@ def fetchdump(session, appids, master_list):
         }
 
         params_str = '&'.join([ '='.join([x,params[x]]) for x in params.keys() ] )
+        print("Fetching URL {}". format(''.join(list([API_URL,params_str]))))
 
         curtime = datetime.datetime.utcnow()
-        print("Fetching URL {}". format(''.join(list([API_URL,params_str]))))
 
         try:
             response = requests.get(API_URL, params=params)
@@ -237,6 +239,7 @@ def fetchdump(session, appids, master_list):
 
         try:
             data = response.json()
+
         except Exception as e:
             print("Error requesting data for the following ids: {} \n continuing after splitting them up and retrying".format(", ".join(applist)))
             print("Error type is [{}]".format(type(e).__name__))
@@ -408,6 +411,7 @@ def main():
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     session = Session()
+
 
     # Fetch list of dicts objects from Steam (game ID/name pairs)
     master_list = build_list()
