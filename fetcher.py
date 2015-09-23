@@ -25,11 +25,11 @@ from sqlalchemy.sql import func
 engine = create_engine('sqlite:///games.db')
 Base = declarative_base()
 API_URL = "http://store.steampowered.com/api/appdetails/"
-LIMIT = 10
+LIMIT = 100
 SLEEPER = 1
 
 #skip cache offset in seconds
-skip_offset = 30
+skip_offset = 86400
 
 
 #DB Table descriptions
@@ -51,12 +51,13 @@ class Game(Base):
 class Prices(Base):
     __tablename__ = 'prices'
     id = Column(Integer, primary_key=True)
-    timestamp = Column(DateTime, nullable=False, primary_key=True)
-    init_price = Column(Integer, nullable=False)
-    final_price = Column(Integer, nullable=False)
+    timestamp         = Column(DateTime, nullable=False, primary_key=True)
+    initial_price     = Column(Integer, nullable=False)
+    final_price       = Column(Integer, nullable=False)
+    discount_percent  = Column(Integer, nullable=False)
 
     def __repr__(self):
-        return "<Prices(id='{}', timestamp='{}', init_price='{}', final_price='{}'>" . format(self.id, self.timestamp, self.init_price, self.final_price)
+        return "<Prices(id='{}', timestamp='{}', initial_price='{}', final_price='{}', discount_percent='{}'>" . format(self.id, self.timestamp, self.initial_price, self.final_price, self.discount_percent)
 
 
 # This table stores things we've seen recently, but skipped because they lacked price infomration
@@ -106,26 +107,24 @@ def name_matcher(appid, master_list):
             return game['name']
 
 #Queries the DB "Game" table for a given ID
-def query_db(session, game):
+def query_db(session, game_id):
     try:
-        result = session.query(Game).filter_by(id=game).one()
+        result = session.query(Game).filter_by(id=game_id).one()
         return result
-    except MultipleResultsFound:
-        print("Error, multiple entries found for ID: {}".format(game))
+
+    except MultipleResultsFound as MRF:
+        print("Error, multiple entries found for ID: {}".format(game_id))
         return False
+
     except NoResultFound:
-        print("No local results found for ID {}. Updating DB".format(game))
+        print("No local results found for ID {}. Updating DB".format(game_id))
         return False
 
 
 def last_price(session,gid):
     try:
-        result = session.query(Prices).filter_by(id=gid).order_by(Prices.timestamp.desc()).one()
+        result = session.query(Prices).filter_by(id=gid).order_by(Prices.timestamp.desc()).first()
         return result
-
-    except MultipleResultsFound:
-        print("Error, multiple entries found for ID: {}".format(gid))
-        return False
 
     except NoResultFound:
         print("No price history found for ID {}. Updating DB".format(gid))
@@ -208,7 +207,7 @@ def dump_blacklist(session,master_list):
 def process_skipped(session, skip_list, curtime):
 
     try:
-        query = update(Skipped).where(Skipped.id.in_(skip_list)).values(timestamp=datetime.datetime.utcnow())
+        query = update(Skipped).where(Skipped.id.in_(skip_list)).values(timestamp=curtime)
         print("Skipped update query {}".format(query))
 
         session.execute(query)
@@ -254,7 +253,7 @@ def fetchdump(session, appids, master_list):
         }
 
         params_str = '&'.join([ '='.join([x,params[x]]) for x in params.keys() ] )
-        print("Fetching URL {}". format(''.join(list([API_URL,params_str]))))
+        print("Fetching URL {}". format(''.join(list([API_URL,'?',params_str]))))
 
         curtime = datetime.datetime.utcnow()
 
@@ -290,7 +289,7 @@ def fetchdump(session, appids, master_list):
             if data[game]["success"] is True and data[game]["data"]:
                 print("ID {:>6} : Updating prices on {}".format(game, name_matcher(game,master_list)))
 
-                init_price  = data[game]["data"]["price_overview"]["initial"]
+                initial_price  = data[game]["data"]["price_overview"]["initial"]
                 final_price = data[game]["data"]["price_overview"]["final"]
                 name = name_matcher(game, master_list)
 
@@ -306,11 +305,35 @@ def fetchdump(session, appids, master_list):
                 # the TS on the existing one.
                 last_price_found = last_price(session, game)
 
-                # if the current prices match the last one, just update the TS
-                if last_price_found and (last_price_found.final_price == final_price) and (last_price_found.init_price == init_price):
-                    update_db(session, Prices, game, "last_price_change", curtime)
+                # if the current prices match the last one, just update the TS on the last entry
+                if last_price_found and (last_price_found.final_price == final_price) and (last_price_found.initial_price == initial_price):
+
+                    # WTF?  How is this better than raw SQL?
+                    #query = update(Prices).where(
+                    #            and_(
+                    #                Prices.id==game, 
+                    #                Prices.timestamp==select(
+                    #                    func.max(Prices.c.timestamp)).where(
+                    #                        Prices.id==game)),
+                    #                Prices.final_price == final_price,
+                    #                Prices.initial_price == initial_price
+                    #            ).values(timestamp=curtime)
+
+                    # update prices set timestamp='<now>' where id=45710 AND timestamp=(select max(timestamp) from prices where id=45710
+                    sql = """UPDATE prices 
+                           SET timestamp="{}" 
+                           WHERE id={} 
+                           AND timestamp=(
+                              SELECT MAX(timestamp),count(*) AS C 
+                              FROM prices 
+                              WHERE id={}
+                              GROUP BY id
+                              HAVING C>1)""".format(curtime,game,game)
+
+                    #print("SQL={}".format(sql))
+
                 else:
-                    price_obj = Prices(id=game, final_price=final_price, init_price=init_price, timestamp=curtime)
+                    price_obj = Prices(id=game, final_price=final_price, initial_price=initial_price, timestamp=curtime)
                     session.add(price_obj)
 
 
@@ -394,8 +417,8 @@ def get_ids_to_check(session, master_list):
     print_stats(session,master_list)
 
     # Shuffle, shuffle
-    random.shuffle(games_w_data)
-    random.shuffle(games_wo_data)
+    #random.shuffle(games_w_data)
+    #random.shuffle(games_wo_data)
 
     ids_to_check = games_wo_data
     ids_to_check.extend(games_w_data)
