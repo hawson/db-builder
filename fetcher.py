@@ -68,6 +68,7 @@ class Skipped(Base):
     def __repr__(self):
         return "<Skipped(id='{}', timestamp='{}')>".format(self.id, self.timestamp)
 
+#------------------------------------------------------------------------------
 
 #Dumps the game database (not including prices)
 def dump_game_db(session):
@@ -204,8 +205,10 @@ def dump_blacklist(session,master_list):
             print("Skipping ID {:>6} : Blacklisted: {}".format(game["appid"], game["name"]))
 
 
+# Update the skipped list stored in the DB.
 def process_skipped(session, skip_list, curtime):
 
+    # First, update everyhing already in the database.
     try:
         query = update(Skipped).where(Skipped.id.in_(skip_list)).values(timestamp=curtime)
         print("Skipped update query {}".format(query))
@@ -223,6 +226,9 @@ def process_skipped(session, skip_list, curtime):
     #print("Current skipped list in DB: {}".format(current_skipped_list))
     #print("Pruned skipped list(work-db): {}".format(pruned_skip_list))
 
+    # This may be overkill, since we should have already updated existing
+    # entries earlier in the function...
+    # however, we do need to add new entries, and that is handled here.
     for skipped_game in list(pruned_skip_list): 
         result = session.query(Skipped).filter_by(id=skipped_game).one()
         if result:
@@ -258,6 +264,7 @@ def fetchdump(session, appids, master_list):
             "filters": "price_overview"
         }
 
+        # Build the URL parameters
         params_str = '&'.join([ '='.join([x,params[x]]) for x in params.keys() ] )
         print("Fetching URL {}". format(''.join(list([API_URL,'?',params_str]))))
 
@@ -288,6 +295,7 @@ def fetchdump(session, appids, master_list):
                 list_split(session, applist, master_list)
             continue
 
+        # prune the skip list
         drop_old_skipped(session)
         skip_list = []
 
@@ -328,14 +336,14 @@ def fetchdump(session, appids, master_list):
 
                     # update prices set timestamp='<now>' where id=45710 AND timestamp=(select max(timestamp) from prices where id=45710
                     sql = """UPDATE prices 
-                           SET timestamp="{}" 
-                           WHERE id={} 
-                           AND timestamp=(
-                              SELECT MAX(timestamp),count(*) AS C 
-                              FROM prices 
-                              WHERE id={}
-                              GROUP BY id
-                              HAVING C>1)""".format(curtime,game,game)
+                             SET timestamp="{}" 
+                             WHERE id={} 
+                             AND timestamp=(
+                                SELECT MAX(timestamp),count(*) AS C 
+                                FROM prices 
+                                WHERE id={}
+                                GROUP BY id
+                                HAVING C>1)""".format(curtime,game,game)
 
                     #print("SQL={}".format(sql))
 
@@ -362,11 +370,10 @@ def fetchdump(session, appids, master_list):
             print("Error updating DB! {}".format(err))
 
 
+        # If we found things to skip (e.g. no price data), then update the skiplist in the DB
         if len(skip_list) > 0:
             process_skipped(session, skip_list, curtime)
 
-
-        
 
         print_stats(session,master_list)
         print("Sleeping {} seconds until the next batch".format(SLEEPER))
@@ -377,6 +384,7 @@ def fetchdump(session, appids, master_list):
             exit(1)
 
 
+# Show some stats for each loop iteration 
 def print_stats(session,master_list):
 
     all_game_ids = [ game['appid'] for game in master_list ]
@@ -403,6 +411,11 @@ def chunker(l, n):
         yield l[i:i+n]
 
 
+# Build a list of all games for which we have local data,
+# then strip out the black-listed items (demos, etc),
+# then strip out the skipped items (non-demos, without prices),
+# then return a long, chunked list of unseen games, and then those
+# we have seen before
 def get_ids_to_check(session, master_list):
     all_game_ids = [ game['appid'] for game in master_list ]
 
