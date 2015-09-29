@@ -237,10 +237,11 @@ def process_skipped(session, skip_list, curtime):
     # entries earlier in the function...
     # however, we do need to add new entries, and that is handled here.
     for skipped_game in list(pruned_skip_list): 
-        result = session.query(Skipped).filter_by(id=skipped_game).one()
-        if result:
+        try: 
+            result = session.query(Skipped).filter_by(id=skipped_game).one()
             result.timestamp=curtime  # Magic!
-        else:
+
+        except NoResultFound:
             skip_obj = Skipped(id=skipped_game, timestamp=curtime)
             session.add(skip_obj)
 
