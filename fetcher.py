@@ -31,6 +31,9 @@ SLEEPER = 1
 #skip cache offset in seconds
 skip_offset = 86400
 
+# Don't query anything that is less than this many seconds old
+# Set to zero to disable
+last_update_offset = 120
 
 #DB Table descriptions
 class Blacklist(Base):
@@ -164,12 +167,16 @@ def drop_old_skipped(session):
 
 
 # Return list of IDs in the skip list.
-# if an ID is in the DB for any reason, it is skipped
+# if an ID is in this DB table for any reason, it is skipped
 def build_skipped_list(session):
     try:
         skipped=[]
         for skip in session.query(Skipped).all():
             skipped.append(skip.id)
+
+        if last_update_offset:
+            for skip in session.query(Game).filter(Game.last_update >= datetime.datetime.utcnow()-datetime.timedelta(0,last_update_offset)).all():
+                skipped.append(skip.id)
         return skipped
 
     except Exception as e:
