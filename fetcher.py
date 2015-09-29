@@ -217,11 +217,17 @@ def process_skipped(session, skip_list, curtime):
 
     current_skipped_list = build_skipped_list(session)
 
-    #print("Current skipped list: {}".format(current_skipped_list))
-    #print("New skipped list: {}".format(skip_list))
+    pruned_skip_list = list(set(skip_list) - set(current_skipped_list))
 
-    for skipped_game in skip_list: 
-        if not skipped_game in current_skipped_list:
+    print("New skipped list (working set): {}".format(skip_list))
+    #print("Current skipped list in DB: {}".format(current_skipped_list))
+    #print("Pruned skipped list(work-db): {}".format(pruned_skip_list))
+
+    for skipped_game in list(pruned_skip_list): 
+        result = session.query(Skipped).filter_by(id=skipped_game).one()
+        if result:
+            result.timestamp=curtime  # Magic!
+        else:
             skip_obj = Skipped(id=skipped_game, timestamp=curtime)
             session.add(skip_obj)
 
