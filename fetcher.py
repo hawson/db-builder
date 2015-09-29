@@ -362,8 +362,13 @@ def fetchdump(session, appids, master_list):
             # We can "successfully" get nothing when asking about prices. This covers demos, F2P games, etc
             elif data[game]["success"] is True and not data[game]["data"]:
                 print("ID {:>6} : F2P or demo: {} (updating blacklist)".format(game, name_matcher(game,master_list)))
-                blacklist_obj = Blacklist(id=game)
-                session.add(blacklist_obj)
+                try:
+                    session.query(Blacklist).filter_by(id=game).one()
+
+                except NoResultFound:
+                    blacklist_obj = Blacklist(id=game)
+                    session.add(blacklist_obj)
+                    session.commit()
 
             else:
                 #No price data yet, check again at later date
