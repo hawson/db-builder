@@ -150,7 +150,7 @@ def drop_old_skipped(session):
         print("Deleting skipped hosts older than {}".format(offset))
 
         rows_deleted = session.query(Skipped).filter(Skipped.timestamp < offset).delete()
-        #session.commit()
+        session.commit()
         #session.execute(Skipped.delete().where(Skipped.c.timestamp < offset))
         if rows_deleted:
             print("Deleted {} rows.".format(rows_deleted))
