@@ -291,6 +291,7 @@ def fetchdump(session, appids, master_list):
 
                 initial_price  = data[game]["data"]["price_overview"]["initial"]
                 final_price = data[game]["data"]["price_overview"]["final"]
+                discount_percent = data[game]["data"]["price_overview"]["discount_percent"]
                 name = name_matcher(game, master_list)
 
                 game_found = query_db(session, game)
@@ -333,7 +334,7 @@ def fetchdump(session, appids, master_list):
                     #print("SQL={}".format(sql))
 
                 else:
-                    price_obj = Prices(id=game, final_price=final_price, initial_price=initial_price, timestamp=curtime)
+                    price_obj = Prices(id=game, final_price=final_price, initial_price=initial_price, timestamp=curtime, discount_percent=discount_percent)
                     session.add(price_obj)
 
 
